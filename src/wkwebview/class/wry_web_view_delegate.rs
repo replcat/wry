@@ -12,12 +12,17 @@ use objc2::{
   DeclaredClass, MainThreadOnly,
 };
 use objc2_foundation::{MainThreadMarker, NSObjectProtocol, NSString};
+#[cfg(feature = "binary-ipc")]
+use objc2_foundation::{NSArray, NSDictionary, NSNumber};
 use objc2_web_kit::{WKScriptMessage, WKScriptMessageHandler, WKUserContentController};
 
 pub const IPC_MESSAGE_HANDLER_NAME: &str = "ipc";
 
 pub struct WryWebViewDelegateIvars {
   pub controller: Retained<WKUserContentController>,
+  #[cfg(feature = "binary-ipc")]
+  pub ipc_handler: Box<dyn Fn(Request<Vec<u8>>)>,
+  #[cfg(not(feature = "binary-ipc"))]
   pub ipc_handler: Box<dyn Fn(Request<String>)>,
 }
 
@@ -45,19 +50,40 @@ define_class!(
 
         let ipc_handler = &this.ivars().ipc_handler;
         let body = msg.body();
-        if let Ok(body) = body.downcast::<NSString>() {
-          let js_utf8 = body.UTF8String();
 
-          let frame_info = msg.frameInfo();
-          let request = frame_info.request();
-          let url = request.URL().unwrap();
-          let absolute_url = url.absoluteString().unwrap();
-          let url_utf8 = absolute_url.UTF8String();
+        let frame_info = msg.frameInfo();
+        let request = frame_info.request();
+        let url = request.URL().unwrap();
+        let absolute_url = url.absoluteString().unwrap();
+        let url_utf8 = absolute_url.UTF8String();
 
-          if let (Ok(url), Ok(js)) = (
-            CStr::from_ptr(url_utf8).to_str(),
-            CStr::from_ptr(js_utf8).to_str(),
-          ) {
+        if let Ok(url) = CStr::from_ptr(url_utf8).to_str() {
+          #[cfg(feature = "binary-ipc")]
+          if let Some(body) = body.downcast_ref::<NSDictionary>() {
+            let bytes: Vec<u8> = body
+              .objects()
+              .map(|byte| byte.downcast::<NSNumber>().unwrap().as_u8())
+              .collect();
+
+            ipc_handler(Request::builder().uri(url).body(bytes).unwrap());
+            return;
+          }
+
+          #[cfg(feature = "binary-ipc")]
+          if let Some(body) = body.downcast_ref::<NSArray>() {
+            let bytes: Vec<u8> = body
+              .iter()
+              .map(|byte| byte.downcast::<NSNumber>().unwrap().as_u8())
+              .collect();
+
+            ipc_handler(Request::builder().uri(url).body(bytes).unwrap());
+            return;
+          }
+
+          #[cfg(not(feature = "binary-ipc"))]
+          if let Ok(body) = body.downcast::<NSString>() {
+            let js_utf8 = body.UTF8String();
+
             ipc_handler(Request::builder().uri(url).body(js.to_string()).unwrap());
             return;
           }
@@ -73,7 +99,8 @@ define_class!(
 impl WryWebViewDelegate {
   pub fn new(
     controller: Retained<WKUserContentController>,
-    ipc_handler: Box<dyn Fn(Request<String>)>,
+    #[cfg(feature = "binary-ipc")] ipc_handler: Box<dyn Fn(Request<Vec<u8>>)>,
+    #[cfg(not(feature = "binary-ipc"))] ipc_handler: Box<dyn Fn(Request<String>)>,
     mtm: MainThreadMarker,
   ) -> Retained<Self> {
     let delegate = mtm

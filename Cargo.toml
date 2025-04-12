@@ -45,6 +45,7 @@ os-webview = [
   "gdkx11",
 ]
 tracing = ["dep:tracing"]
+binary-ipc = []
 
 [dependencies]
 tracing = { version = "0.1", optional = true }

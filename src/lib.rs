@@ -557,6 +557,9 @@ pub struct WebViewAttributes<'a> {
 
   /// The IPC handler to receive the message from Javascript on webview
   /// using `window.ipc.postMessage("insert_message_here")` to host Rust code.
+  #[cfg(feature = "binary-ipc")]
+  pub ipc_handler: Option<Box<dyn Fn(Request<Vec<u8>>)>>,
+  #[cfg(not(feature = "binary-ipc"))]
   pub ipc_handler: Option<Box<dyn Fn(Request<String>)>>,
 
   /// A handler closure to process incoming [`DragDropEvent`] of the webview.
@@ -1052,6 +1055,17 @@ impl<'a> WebViewBuilder<'a> {
   /// ## Platform-specific
   ///
   /// - **Linux / Android**: The request URL is not supported on iframes and the main frame URL is used instead.
+  #[cfg(feature = "binary-ipc")]
+  pub fn with_ipc_handler<F>(self, handler: F) -> Self
+  where
+    F: Fn(Request<Vec<u8>>) + 'static,
+  {
+    self.and_then(|mut b| {
+      b.attrs.ipc_handler = Some(Box::new(handler));
+      Ok(b)
+    })
+  }
+  #[cfg(not(feature = "binary-ipc"))]
   pub fn with_ipc_handler<F>(self, handler: F) -> Self
   where
     F: Fn(Request<String>) + 'static,
