@@ -228,7 +228,11 @@ impl InnerWebView {
 
       // Register Custom Protocols
       let mut protocol_ptrs = Vec::new();
+      let process_pool = config.processPool();
       for (name, function) in attributes.custom_protocols {
+        let ns_string = NSString::from_str(&name);
+        let _: () = objc2::msg_send![&process_pool, _registerURLSchemeAsSecure: &*ns_string];
+
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
         let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
         let protocol_index = protocol_ptrs.len();
