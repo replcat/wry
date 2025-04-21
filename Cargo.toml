@@ -47,6 +47,7 @@ x11 = [
   "gdkx11",
 ]
 tracing = ["dep:tracing"]
+_trace = ["tracing"] # trace this crate, for internal use only
 
 [dependencies]
 tracing = { version = "0.1", optional = true }

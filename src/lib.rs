@@ -346,10 +346,12 @@
 // #[macro_use]
 // extern crate objc;
 
+#[macro_use]
+mod util;
+
 mod error;
 mod proxy;
 #[cfg(any(target_os = "macos", target_os = "android", target_os = "ios"))]
-mod util;
 mod web_context;
 
 #[cfg(target_os = "android")]
