@@ -123,6 +123,7 @@ define_class!(
 );
 
 // Custom Protocol Task Checker
+#[cfg(not(feature = "streaming"))]
 impl WryWebView {
   pub(crate) fn add_custom_task_key(&self, task_id: usize) -> Retained<NSUUID> {
     let task_uuid = NSUUID::new();

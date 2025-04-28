@@ -15,13 +15,19 @@ mod util;
 #[cfg(target_os = "ios")]
 mod ios;
 
+#[cfg(feature = "streaming")]
+pub mod urlscheme;
+#[cfg(feature = "streaming")]
+pub(crate) use urlscheme::*;
+
 mod class;
+#[cfg(not(feature = "streaming"))]
+use class::url_scheme_handler;
 pub use class::wry_web_view::WryWebView;
 #[cfg(target_os = "macos")]
 use class::wry_web_view_parent::WryWebViewParent;
 use class::{
   document_title_changed_observer::*,
-  url_scheme_handler,
   wry_download_delegate::WryDownloadDelegate,
   wry_navigation_delegate::WryNavigationDelegate,
   wry_web_view::WryWebViewIvars,
@@ -102,13 +108,17 @@ use crate::util::Counter;
 
 static COUNTER: Counter = Counter::new();
 
+#[cfg(not(feature = "streaming"))]
 static WEBVIEW_STATE: Lazy<RwLock<HashMap<String, WebViewState>>> = Lazy::new(Default::default);
 
+#[cfg(not(feature = "streaming"))]
 struct WebViewState {
   pub protocol_ptrs: Vec<Rc<dyn Fn(crate::WebViewId, Request<Vec<u8>>, RequestAsyncResponder)>>,
 }
 
+#[cfg(not(feature = "streaming"))]
 unsafe impl Send for WebViewState {}
+#[cfg(not(feature = "streaming"))]
 unsafe impl Sync for WebViewState {}
 
 #[derive(Debug, Default, Copy, Clone)]
@@ -227,7 +237,9 @@ impl InnerWebView {
       };
 
       // Register Custom Protocols
+      #[cfg(not(feature = "streaming"))]
       let mut protocol_ptrs = Vec::new();
+      #[cfg(not(feature = "streaming"))]
       for (name, function) in attributes.custom_protocols {
         let url_scheme_handler_cls = url_scheme_handler::create(&name);
         let handler: *mut AnyObject = objc2::msg_send![url_scheme_handler_cls, new];
@@ -256,10 +268,16 @@ impl InnerWebView {
         }
       }
 
+      #[cfg(not(feature = "streaming"))]
       WEBVIEW_STATE
         .write()
         .unwrap()
         .insert(webview_id.clone(), WebViewState { protocol_ptrs });
+
+      #[cfg(feature = "streaming")]
+      for (protocol, implementation) in attributes.custom_protocols {
+        urlscheme::Handler::try_attach(&config, &webview_id, &protocol, implementation)?;
+      }
 
       // WebView and manager
       let manager = config.userContentController();
@@ -1098,6 +1116,7 @@ pub fn platform_webview_version() -> Result<String> {
 
 impl Drop for InnerWebView {
   fn drop(&mut self) {
+    #[cfg(not(feature = "streaming"))]
     WEBVIEW_STATE.write().unwrap().remove(&self.id);
 
     // We need to drop handler closures here

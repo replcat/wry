@@ -30,6 +30,7 @@ default = ["drag-drop", "protocol", "os-webview", "x11"]
 serde = ["dpi/serde"]
 drag-drop = []
 protocol = []
+streaming = ["protocol"]
 devtools = []
 transparent = []
 fullscreen = []
@@ -97,6 +98,7 @@ features = [
 [target.'cfg(target_vendor = "apple")'.dependencies]
 url = "2.5"
 block2 = "0.6"
+dispatch2 = "0.3"
 objc2 = { version = "0.6", features = [
     "exception",
     # because `NSUUID::from_bytes` needs it,
@@ -140,6 +142,7 @@ objc2-foundation = { version = "0.3.0", default-features = false, features = [
   "std",
   "objc2-core-foundation",
   "NSURLRequest",
+  "NSURLResponse",
   "NSURL",
   "NSString",
   "NSKeyValueCoding",

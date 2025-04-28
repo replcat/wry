@@ -74,4 +74,10 @@ pub enum Error {
   #[cfg(any(target_os = "macos", target_os = "ios"))]
   #[error("data store is currently opened")]
   DataStoreInUse,
+  #[cfg(feature = "streaming")]
+  #[error(transparent)]
+  CustomProtocolTaskError(#[from] crate::wkwebview::TaskError),
+  #[cfg(feature = "streaming")]
+  #[error(transparent)]
+  CustomProtocolHandlerError(#[from] crate::wkwebview::HandlerError),
 }

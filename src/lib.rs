@@ -400,6 +400,11 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf, rc::Rc};
 
 use http::{Request, Response};
 
+#[cfg(feature = "streaming")]
+pub mod streaming;
+#[cfg(feature = "streaming")]
+pub use streaming::*;
+
 pub use cookie;
 pub use dpi;
 pub use error::*;
@@ -434,6 +439,9 @@ impl Default for Rect {
 /// See [`WebViewBuilder::with_asynchronous_custom_protocol`] for more information.
 pub struct RequestAsyncResponder {
   pub(crate) responder: Box<dyn FnOnce(Response<Cow<'static, [u8]>>)>,
+
+  #[cfg(feature = "streaming")]
+  pub(crate) get_platform_handle: Box<dyn FnOnce(Response<()>) -> Result<PlatformStreamHandle>>,
 }
 
 // SAFETY: even though the webview bindings do not indicate the responder is Send,
@@ -446,6 +454,13 @@ impl RequestAsyncResponder {
   pub fn respond<T: Into<Cow<'static, [u8]>>>(self, response: Response<T>) {
     let (parts, body) = response.into_parts();
     (self.responder)(Response::from_parts(parts, body.into()))
+  }
+
+  #[cfg(feature = "streaming")]
+  pub fn start_stream(self, headers: Response<()>) -> StreamHandle {
+    StreamHandle::new(self, headers).unwrap_or_else(|err| {
+      panic!("internal error: {err}");
+    })
   }
 }
 
